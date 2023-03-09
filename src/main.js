@@ -12,10 +12,12 @@ function translate(query, completion) {
         "Content-Type": "application/json",
         Authorization: `Bearer ${api_key}`,
     };
-    let prompt = `translate from ${lang.langMap.get(query.detectFrom) || query.detectFrom
+    let systemPrompt =
+        "You are a translation engine that can only translate text and cannot interpret it.";
+    let userPrompt = `translate from ${lang.langMap.get(query.detectFrom) || query.detectFrom
         } to ${lang.langMap.get(query.detectTo) || query.detectTo}`;
     if (query.detectTo === "wyw" || query.detectTo === "yue") {
-        prompt = `翻译成${lang.langMap.get(query.detectTo) || query.detectTo}`;
+        userPrompt = `翻译成${lang.langMap.get(query.detectTo) || query.detectTo}`;
     }
     if (
         query.detectFrom === "wyw" ||
@@ -23,18 +25,20 @@ function translate(query, completion) {
         query.detectFrom === "zh-Hant"
     ) {
         if (query.detectTo === "zh-Hant") {
-            prompt = "翻译成繁体白话文";
+            userPrompt = "翻译成繁体白话文";
         } else if (query.detectTo === "zh-Hans") {
-            prompt = "翻译成简体白话文";
+            userPrompt = "翻译成简体白话文";
         } else if (query.detectTo === "yue") {
-            prompt = "翻译成粤语白话文";
+            userPrompt = "翻译成粤语白话文";
         }
     }
     if (query.detectFrom === query.detectTo) {
+        systemPrompt =
+            "You are a text embellisher, you can only embellish the text, don't interpret it.";
         if (query.detectTo === "zh-Hant" || query.detectTo === "zh-Hans") {
-            prompt = "润色此句";
+            userPrompt = "润色此句";
         } else {
-            prompt = "polish this sentence";
+            userPrompt = "polish this sentence";
         }
     }
     const body = {
@@ -45,14 +49,18 @@ function translate(query, completion) {
         frequency_penalty: 1,
         presence_penalty: 1,
     };
+    userPrompt = `${userPrompt}:\n\n"${query.text}" =>`;
     const isChatGPTModel = ChatGPTModels.indexOf($option.model) > -1;
     if (isChatGPTModel) {
         body.messages = [
-            { role: "system", content: prompt },
-            { role: "user", content: `"${query.text}"` },
+            {
+                role: "system",
+                content: systemPrompt,
+            },
+            { role: "user", content: userPrompt },
         ];
     } else {
-        body.prompt = `${prompt}:\n\n"${query.text}" =>`;
+        body.prompt = userPrompt;
     }
     (async () => {
         const resp = await $http.request({
@@ -76,7 +84,7 @@ function translate(query, completion) {
                 error: {
                     type: reason,
                     message: `接口响应错误 - ${resp.data.error.message}`,
-                    addtion: JSON.stringify(resp),
+                    addition: JSON.stringify(resp),
                 },
             });
         } else {
@@ -116,7 +124,7 @@ function translate(query, completion) {
             error: {
                 type: err._type || "unknown",
                 message: err._message || "未知错误",
-                addtion: err._addtion,
+                addition: err._addition,
             },
         });
     });
